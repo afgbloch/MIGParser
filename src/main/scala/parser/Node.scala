@@ -2,24 +2,30 @@ package parser
  
 sealed abstract class Node {
   val name:String
+  var asap:Int = -1
+  var alap:Int = -1
+  def mobiity = alap - asap
 }
-final case class Gate(name:String) extends Node {
-  var tpe:GateType = None 
+
+trait Pred {
+  var outputs:List[Node] = Nil
+}
+
+trait Succ {
   var inputs:List[GateInput] = Nil
-  var outputs:List[Node] = Nil
 }
 
-final case class Input(name:String) extends Node{
-  var outputs:List[Node] = Nil
+final case class Gate(name:String) extends Node with Pred with Succ{
+  var tpe:GateType = None 
 }
 
-final case class Output(name:String) extends Node{
-  var input:GateInput = null
-}
+final case class Input(name:String) extends Node with Pred
 
-final case object One extends Node{
+final case class Output(name:String) extends Node with Succ
+
+final case object One extends Node with Pred{
   val name:String = "one";
-  var outputs:List[Node] = Nil
+  asap = 0
 }
 
 final case class Assign(name:String, tpe:GateType, inputs:List[(Boolean, String)]) extends Node

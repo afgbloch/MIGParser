@@ -35,7 +35,9 @@ def assignParser: Parser[List[Node]] =
 
 def inputGateParser: Parser[List[(Boolean, String)]] = 
       "~" ~> ident ^^ {case ident => List((true, ident))} | 
-      ident ^^ {case ident => List((false, ident))}      
+      ident ^^ {case ident => List((false, ident))}   |
+      "~" ~ "one" ^^^ List((true, "one")) | 
+      "one" ^^^ List((false, "one"))   
 
   def parse(s:String) = {
     val tokens = new lexical.Scanner(s)
@@ -44,7 +46,7 @@ def inputGateParser: Parser[List[(Boolean, String)]] =
       case Success(nodes, _) => nodes.foreach{
         case o@Output(_) => circuit += o; outputSet += o
         case g@Gate(_) => circuit += g;
-        case i@Input(_) => circuit += i; inputSet += i
+        case i@Input(_) => i.asap = 0; circuit += i; inputSet += i
         case e@One => circuit += e
         case Assign(name, tpe, inputs) => assign(name, tpe, inputs)
       }
@@ -80,7 +82,7 @@ def assign(name:String, tpe:GateType, inputs:List[(Boolean, String)]) = {
         case o2@One => o2.outputs ::= o
         case _ => //nothing
       }
-      o.input = GateInput(b, pred)
+      o.inputs = List(GateInput(b, pred))
     }
     case _ =>
   
@@ -128,7 +130,53 @@ def findGate(name:String) = circuit.find{x => x.name == name}.get
     println("Majority with all inverted input =" + allInvertedMaj)
     println("And =" + and)
     println("Or =" + or)
-    
+    var inputCounter = 0
+//    
+//    inputSet foreach {
+//      case Input(n) => print(n+ ";"); inputCounter+=1
+//    }
+//    println("Inputs = " + inputCounter)
+    val time = asap()
+    //alap(outputSet, time)
+    circuit.foreach{
+      x => println(x.name + " : " + x.asap/* + " : " + x.alap*/)
+    }
    
   }
+
+def asap() = {
+  var v = (circuit -- inputSet) - One
+
+  while(!v.isEmpty) {
+    var tmp = v
+    v.foreach {
+      case i:Succ => {
+        val l = i.inputs.map { x => x.node.asap }
+        if(l.forall { x => x != -1 }) {
+          i.asap = l.max + 1
+          tmp = v - i
+        }
+      }
+    }
+    v = tmp
+  }
+}
+
+def alap() = {
+  var v = (circuit -- inputSet) - One
+
+  while(!v.isEmpty) {
+    var tmp = v
+    v.foreach {
+      case i:Succ => {
+        val l = i.inputs.map { x => x.node.asap }
+        if(l.forall { x => x != -1 }) {
+          i.asap = l.max + 1
+          tmp = v - i
+        }
+      }
+    }
+    v = tmp
+  }
+}
 }
