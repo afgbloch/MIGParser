@@ -1,19 +1,34 @@
 package parser
-
-sealed abstract class Node(name:String, direction:Direction)
-final case class Gate(name:String, direction:DirectionGate) extends Node(name, direction) {
-  var tpe:GateType = Majority // FIXME
+ 
+sealed abstract class Node {
+  val name:String
 }
-final case class Input(name:String) extends Node(name, InputDirection)
+final case class Gate(name:String) extends Node {
+  var tpe:GateType = None 
+  var inputs:List[GateInput] = Nil
+  var outputs:List[Node] = Nil
+}
+
+final case class Input(name:String) extends Node{
+  var outputs:List[Node] = Nil
+}
+
+final case class Output(name:String) extends Node{
+  var input:GateInput = null
+}
+
+final case object One extends Node{
+  val name:String = "one";
+  var outputs:List[Node] = Nil
+}
+
+final case class Assign(name:String, tpe:GateType, inputs:List[(Boolean, String)]) extends Node
+
 
 sealed abstract class GateType
 final case object And extends GateType
+final case object Or extends GateType
 final case object Majority extends GateType
+final case object None extends GateType
 
-sealed abstract class Direction
-final case object InputDirection extends Direction
-
-sealed abstract class DirectionGate extends Direction
-final case object Output extends DirectionGate 
-final case object Wire extends DirectionGate
-
+sealed case class GateInput(inverted:Boolean, node:Node)
