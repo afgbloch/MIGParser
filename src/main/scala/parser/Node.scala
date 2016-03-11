@@ -5,6 +5,12 @@ sealed abstract class Node {
   var asap:Int = -1
   var alap:Int = -1
   def mobiity = alap - asap
+  def setAsap(v:Int) {
+    this.synchronized {
+      asap = v
+    }
+  }
+ override def hashCode = name.hashCode()
 }
 
 trait Pred {

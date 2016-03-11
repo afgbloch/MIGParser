@@ -2,15 +2,18 @@ package parser
 
 import scala.util.parsing.combinator.syntactical.StandardTokenParsers
 import scala.util.parsing.input._
+import scala.collection.immutable.HashSet
+import scala.collection.immutable.HashMap
 
 object Parser extends StandardTokenParsers {
   lexical.reserved ++= List("input", "output", "wire", "assign", "one")
   lexical.delimiters ++= List(",", ";", "=", "~", "&", "|", "(", ")")
   import lexical.NumericLit
 
-  var circuit:Set[Node] = Set()
-  var inputSet:Set[parser.Input] = Set()
-  var outputSet:Set[parser.Output] = Set()
+  var circuit:Set[parser.Gate] = HashSet()
+  var inputSet:Set[parser.Input] = HashSet()
+  var outputSet:Set[parser.Output] = HashSet()
+  var nodeSet:Map[String, Node] = HashMap()
   
   def term: Parser[List[Node]] =
       "input" ~> rep(ident <~ ",") ~ ident <~ ";" ^^ {case inputs ~ input => Input(input) :: inputs.map{x => Input(x)}} |
@@ -39,19 +42,20 @@ def inputGateParser: Parser[List[(Boolean, String)]] =
       "~" ~ "one" ^^^ List((true, "one")) | 
       "one" ^^^ List((false, "one"))   
 
-  def parse(s:String) = {
-    val tokens = new lexical.Scanner(s)
-    
-    phrase(term)(tokens) match {
-      case Success(nodes, _) => nodes.foreach{
-        case o@Output(_) => circuit += o; outputSet += o
-        case g@Gate(_) => circuit += g;
-        case i@Input(_) => i.asap = 0; circuit += i; inputSet += i
-        case e@One => circuit += e
-        case Assign(name, tpe, inputs) => assign(name, tpe, inputs)
-      }
-      case e@_ => //println("Parsing error" + e)
-    
+  def parse(file:String) = {
+    val p = io.Source.fromFile(file).getLines.toList.par.map{  l => 
+      val tokens = new lexical.Scanner(l)
+      phrase(term)(tokens) 
+  }
+    p.seq.foreach {
+        case Success(nodes, _) => nodes.foreach{
+          case o@Output(_) => nodeSet += o.name -> o ; outputSet += o
+          case g@Gate(_) => nodeSet += g.name -> g; circuit += g;
+          case i@Input(_) => i.asap = 0; nodeSet += i.name -> i; inputSet += i
+          case e@One => nodeSet += e.name -> e
+          case Assign(name, tpe, inputs) => assign(name, tpe, inputs)
+        }
+        case e@_ => //println("Parsing error" + e)
   }
 }
     
@@ -89,14 +93,15 @@ def assign(name:String, tpe:GateType, inputs:List[(Boolean, String)]) = {
   }
 }
 
-def findGate(name:String) = circuit.find{x => x.name == name}.get
+def findGate(name:String):Node= nodeSet.get(name).get
   
   def main(args: Array[String]): Unit = {
 
-    val file = io.Source.fromFile(args.head)
-    for(line <- file.getLines()) {
-      parse(line)
-    }
+//    val file = io.Source.fromFile(args.head)
+//    for(line <- file.getLines()) {
+//      parse(line)
+//    }
+      parse(args.head)
 //    circuit.foreach { 
 //      case Gate(n) => print(n+ ";") 
 //      case Input(n) => print(n+ ";") 
@@ -136,16 +141,16 @@ def findGate(name:String) = circuit.find{x => x.name == name}.get
 //      case Input(n) => print(n+ ";"); inputCounter+=1
 //    }
 //    println("Inputs = " + inputCounter)
-    val time = asap()
+    val time = asap2()
     //alap(outputSet, time)
-    circuit.foreach{
-      x => println(x.name + " : " + x.asap/* + " : " + x.alap*/)
-    }
+//    circuit.foreach{
+//      case x@Gate(_) => println(x.name + " : " + x.asap/* + " : " + x.alap*/)
+//    }
    
   }
 
 def asap() = {
-  var v = (circuit -- inputSet) - One
+  var v = circuit
 
   while(!v.isEmpty) {
     var tmp = v
@@ -162,9 +167,9 @@ def asap() = {
   }
 }
 
-def alap() = {
-  var v = (circuit -- inputSet) - One
-
+def asap2() = {
+  var v = inputSet.flatMap { x => x.outputs }
+  //v.grouped(v.size/4).foreach { v => ??? }
   while(!v.isEmpty) {
     var tmp = v
     v.foreach {
@@ -173,10 +178,35 @@ def alap() = {
         if(l.forall { x => x != -1 }) {
           i.asap = l.max + 1
           tmp = v - i
+          i match {
+            case i:Pred => {
+              tmp ++= i.outputs.filter { x => x.asap < i.asap + 1}
+            }
+            case _ =>
+          }
         }
       }
+      case _ => println("error not a Succ")
     }
     v = tmp
   }
 }
+
+//def alap() = {//FIXME
+//  var v = (circuit -- inputSet) - One
+//
+//  while(!v.isEmpty) {
+//    var tmp = v
+//    v.foreach {
+//      case i:Succ => {
+//        val l = i.inputs.map { x => x.node.asap }
+//        if(l.forall { x => x != -1 }) {
+//          i.asap = l.max + 1
+//          tmp = v - i
+//        }
+//      }
+//    }
+//    v = tmp
+//  }
+//}
 }
