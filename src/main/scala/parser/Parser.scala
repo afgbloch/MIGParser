@@ -41,8 +41,7 @@ object Parser extends StandardTokenParsers {
     }
     p.seq.foreach {
       case Success(nodes, _) => nodes.foreach {
-        case o @ Output(_) =>
-          res.nodeMap += o.name -> o; res.outputSet += o
+        case o @ Output(_) => res.nodeMap += o.name -> o; res.outputSet += o
         case g @ Gate(_) => res.nodeMap += g.name -> g; res.circuit += g;
         case i @ Input(_) => i.asap = 0; res.nodeMap += i.name -> i; res.inputSet += i
         case e @ One => res.nodeMap += e.name -> e
@@ -90,24 +89,71 @@ object Parser extends StandardTokenParsers {
 
   def main(args: Array[String]): Unit = {
     while(true){
+      
       print("File name : ")
-      run(scala.io.StdIn.readLine())
+      val res = run(scala.io.StdIn.readLine())
+
+      println("Critical path = " + res.cp)
+      println("  Nodes with zero mobility = " + res.cpGateNb)
+      println("  Maj with zero mobility = " + res.cpMajNb + " (" + res.cpMaj_% + " %)")
+      println("Nodes = " + res.circuit.size)
+      println("Inputs = " + res.inputSet.size)
+      println("Outputs = " + res.outputSet.size)
+      val invertedOutput = res.outputSet.count(_.inputs.head.inverted)
+      println("Output with inverted input = " + invertedOutput + " (" + invertedOutput.toFloat / res.outputSet.size * 100 + " %)")
+      println("Majority = " + res.maj + " (" + res.maj_% + " %)")
+      println("  Inverted inputs")
+      println("    no inverted input = " + res.noInvertedMaj + " (" + res.noInvertedMaj_% + " %)")
+      println("    one inverted input = " + res.oneInvertedMaj + " (" + res.oneInvertedMaj_% + " %)")
+      println("    two inverted inputs = " + res.twoInvertedMaj + " (" + res.twoInvertedMaj_% + " %)")
+      println("    three inverted inputs = " + res.threeInvertedMaj + " (" + res.threeInvertedMaj_% + " %)")
+      println("  Majority Inputs")
+      println("    Majority input = " + res.noMajInput + " (" + res.noMajInput_% + " %)")
+      println("    one Majority input = " + res.oneMajInput + " (" + res.oneMajInput_% + " %)")
+      println("    two Majority inputs = " + res.twoMajInput + " (" + res.twoMajInput_% + " %)")
+      println("    three Majority inputs = " + res.threeMajInput + " (" + res.threeMajInput_% + " %)")
+      println("And = " + res.and + " (" + res.and_% + "%)")
+      println("  And with no inverted input = " + res.noInvertedAnd + " (" + res.noInvertedAnd_% + " %)")
+      println("  And with one inverted input = " + res.oneInvertedAnd + " (" + res.oneInvertedAnd_% + " %)")
+      println("  And with two inverted inputs = " + res.twoInvertedAnd + " (" + res.twoInvertedAnd_% + " %)")
+      println("Or = " + res.or + " (" + res.or_% + "%)")
+      println("  Or with no inverted input = " + res.noInvertedOr + " (" + res.noInvertedOr_% + " %)")
+      println("  Or with one inverted input = " + res.oneInvertedOr + " (" + res.oneInvertedOr_% + " %)")
+      println("  Or with two inverted inputs = " + res.twoInvertedOr + " (" + res.twoInvertedOr_% + " %)")
+      println("Fanout")
+      println("  Nodes with : ")
+      res.totalFanout.keys.toSeq.sorted.foreach{ i =>
+        println("    " + i + " fanout = " + res.totalFanout(i) +" (" + res.totalFanout_%(i) + " %)")
+      }
+      println("  Majority with : ")
+      res.majFanout.keys.toSeq.sorted.foreach{ i =>
+        println("    " + i + " fanout = " + res.majFanout(i) +" (" + res.majFanout_%(i) + " %)")
+      }
+      
+      
+      println("===========================")
     }
   }
 
-  def run(s: String) = {
+  def run(s: String):Results = {
 
     val res = new Results()
 
     parse(s, res)
-
-    val timing = asap(res)
-    println("Critical path = " + timing)
-    alap(timing, res)
+    asap(res)
+    alap(res)
 
     res.circuit.foreach { gate =>
+      
+      val fanout = gate.outputs.size
+      res.totalFanout.get(fanout) match {
+        case Some(i) => res.totalFanout += fanout -> (i+1)
+        case scala.None => res.totalFanout += fanout -> 1
+      }
+      
       var inverted = gate.inputs.count(_.inverted)
-
+      if(gate.mobiity == 0) {res.cpGateNb+=1}
+      
       gate.tpe match {
         case Majority => {
           res.maj += 1
@@ -117,6 +163,26 @@ object Parser extends StandardTokenParsers {
             case 2 => res.twoInvertedMaj += 1
             case 3 => res.threeInvertedMaj += 1
             case _ => throw new MatchError("Invalide number of inputs")
+          }
+          
+          if(gate.mobiity == 0) {res.cpMajNb+=1}
+          
+          val majInputsNb = gate.inputs.count { 
+            case GateInput(_, i@Gate(_)) if i.tpe == Majority => true
+            case _ => false
+          } 
+          
+          majInputsNb match {
+            case 0 => res.noMajInput += 1
+            case 1 => res.oneMajInput += 1
+            case 2 => res.twoMajInput += 1
+            case 3 => res.threeMajInput += 1
+            case _ => throw new MatchError("Invalide number of inputs")
+          }
+          
+          res.majFanout.get(fanout) match {
+            case Some(i) => res.majFanout += fanout -> (i+1)
+            case scala.None => res.majFanout += fanout -> 1
           }
         }
         case And => {
@@ -141,35 +207,16 @@ object Parser extends StandardTokenParsers {
         case _ => throw new MatchError("Undefind Gate Type")
       }
     }
-
-    println("Majority = " + res.maj)
-    println("Majority with no inverted input = " + res.noInvertedMaj)
-    println("Majority with one inverted input = " + res.oneInvertedMaj)
-    println("Majority with two inverted inputs = " + res.twoInvertedMaj)
-    println("Majority with three inverted inputs = " + res.threeInvertedMaj)
-    println("And = " + res.and)
-    println("And with no inverted input = " + res.noInvertedAnd)
-    println("And with one inverted input = " + res.oneInvertedAnd)
-    println("And with two inverted inputs = " + res.twoInvertedAnd)
-    println("Or = " + res.or)
-    println("Or with no inverted input = " + res.noInvertedOr)
-    println("Or with one inverted input = " + res.oneInvertedOr)
-    println("Or with two inverted inputs = " + res.twoInvertedOr)
-
-    val invertedOutput = res.outputSet.count(_.inputs.head.inverted)
-    println("Output = " + res.outputSet.size)
-    println("Output with inverted input = " + invertedOutput)
-
+    res
   }
 
-  def asap(res:Results): Int = {
+  def asap(res:Results) = {
     var v = res.inputSet
       .flatMap(_.outputs)
       .filter {
         case Gate(_) => true
         case _       => false
       }
-    var timing = -1
     while (!v.isEmpty) {
       var tmp = v
       v.foreach {
@@ -177,7 +224,7 @@ object Parser extends StandardTokenParsers {
           val l = i.inputs.map(_.node.asap)
           if (l.forall(_ != -1)) {
             i.asap = l.max + 1
-            if (i.asap > timing) { timing = i.asap }
+            if (i.asap > res.cp) { res.cp = i.asap }
             tmp = tmp - i
             i match {
               case i: Pred => {
@@ -196,11 +243,10 @@ object Parser extends StandardTokenParsers {
       }
       v = tmp
     }
-    timing
   }
 
-  def alap(asap: Int, res:Results) = {
-    res.outputSet.foreach(_.alap = asap + 1)
+  def alap(res:Results) = {
+    res.outputSet.foreach(_.alap = res.cp + 1)
     var v = res.outputSet
       .flatMap(_.inputs)
       .map(_.node)
@@ -215,7 +261,7 @@ object Parser extends StandardTokenParsers {
         case i: Pred => {
           val l = i.outputs.map(_.alap)
           if (l.forall(_ != -1)) {
-            i.alap = l.max - 1
+            i.alap = l.min - 1
             tmp = tmp - i
             i match {
               case i: Succ => {
