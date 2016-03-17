@@ -44,7 +44,9 @@ final case object None extends GateType
 sealed case class GateInput(inverted:Boolean, node:Node)
 
 class Results {
-
+  
+  var name = ""
+  
   var maj = 0
   def maj_% = maj.toFloat / circuit.size * 100
   
@@ -90,9 +92,12 @@ class Results {
   def cpMaj_% = cpMajNb.toFloat / cpGateNb * 100
   
   var totalFanout:Map[Int, Int] = HashMap() 
-  def totalFanout_%(i:Int) = totalFanout(i).toFloat / circuit.size * 100  
+  def totalFanout_%(i:Int) = totalFanout.getOrElse(i, 0).toFloat / circuit.size * 100  
   var majFanout:Map[Int, Int] = HashMap() 
-  def majFanout_%(i:Int) = majFanout(i).toFloat / maj * 100
+  def majFanout_%(i:Int) = majFanout.getOrElse(i, 0).toFloat / maj * 100
+  
+  lazy val invertedOutput = outputSet.count(_.inputs.head.inverted)
+  def invertedOutput_% = invertedOutput.toFloat / outputSet.size * 100 
   
   var circuit: Set[parser.Gate] = HashSet()
   var inputSet: Set[parser.Input] = HashSet()
