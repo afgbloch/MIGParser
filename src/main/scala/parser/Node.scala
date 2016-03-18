@@ -80,11 +80,11 @@ class Results {
   var or = 0
   def or_% = or.toFloat / circuit.size * 100
   var noInvertedOr = 0
-  def noInvertedOr_% = noInvertedOr.toFloat / or * 100
+  def noInvertedOr_% = if(or != 0){ noInvertedOr.toFloat / or * 100} else { 0 }
   var oneInvertedOr = 0
-  def oneInvertedOr_% = oneInvertedOr.toFloat / or * 100
+  def oneInvertedOr_% = if(or != 0){ oneInvertedOr.toFloat / or * 100} else { 0 }
   var twoInvertedOr = 0
-  def twoInvertedOr_% = twoInvertedOr.toFloat / or * 100
+  def twoInvertedOr_% = if(or != 0){ twoInvertedOr.toFloat / or * 100} else { 0 }
   
   var cp = -1
   var cpGateNb = 0
