@@ -4,7 +4,6 @@ import scala.util.parsing.combinator.syntactical.StandardTokenParsers
 import scala.util.parsing.input._
 import java.util.Scanner
 import java.io._
-import scala.reflect.runtime.universe._
 
 object Parser extends StandardTokenParsers {
   lexical.reserved ++= List("input", "output", "wire", "assign", "one")
@@ -37,7 +36,7 @@ object Parser extends StandardTokenParsers {
       "one" ^^^ List((false, "one"))
 
   def parse(res:Results) = {
-    val p = io.Source.fromFile(res.name).getLines.toList.par.map { l =>
+    val p = io.Source.fromFile("test/" + res.name).getLines.toList.par.map { l =>
       val tokens = new lexical.Scanner(l)
       phrase(term)(tokens)
     }
@@ -95,16 +94,23 @@ object Parser extends StandardTokenParsers {
     print("table/readable(1/0) : ")
     val table = scala.io.StdIn.readLine().toInt == 1
     
-    print("Numbers of bench = ")
-    val nb = scala.io.StdIn.readLine().toInt
-    
-    for(i <- 1 to nb ) {
-      print("File name : ")
+//    print("Numbers of bench = ")
+//    val nb = scala.io.StdIn.readLine().toInt
+//    
+//    for(i <- 1 to nb ) {
+//      print("File name : ")
+//      val res = new Results
+//      res.name = scala.io.StdIn.readLine()
+//      bench ::= res
+//    }
+////    
+    (new File("test")).listFiles.filter(x => x.isFile && (x.getName.takeRight(2) == ".v")).toList.foreach { file =>
       val res = new Results
-      res.name = scala.io.StdIn.readLine()
+      res.name = file.getName;println(file.getName)
       bench ::= res
     }
-      bench.par.foreach{res => run(res); println("Done with " + res.name)}
+    
+    bench.par.foreach{res => run(res); println("Done with " + res.name)}
       
     if(table) {
     	val writer = new PrintWriter(new File("results.csv"))
@@ -188,7 +194,6 @@ object Parser extends StandardTokenParsers {
   }
 
   def run(res: Results) = {
-
     parse(res)
     asap(res)
     alap(res)
@@ -254,7 +259,7 @@ object Parser extends StandardTokenParsers {
           }
         }
 
-        case _ => throw new MatchError("Undefind Gate Type")
+        case _ => //throw new MatchError("Undefind Gate Type")
       }
     }
   }

@@ -103,8 +103,6 @@ class Results {
   var inputSet: Set[parser.Input] = HashSet()
   var outputSet: Set[parser.Output] = HashSet()
   var nodeMap: Map[String, Node] = HashMap()
-  
-  def toCSV : String = ???
 
 }
   
